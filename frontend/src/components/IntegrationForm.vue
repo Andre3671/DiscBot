@@ -68,16 +68,21 @@
         <div v-if="formData.schedulerEnabled">
           <div class="form-group">
             <label>Discord Channel *</label>
-            <select v-model="formData.schedulerChannelId" :required="formData.schedulerEnabled">
-              <option value="" disabled>
-                {{ channels.length ? 'Select a channel' : 'Bot must be running to load channels' }}
-              </option>
+            <select v-if="channels.length" v-model="formData.schedulerChannelId" :required="formData.schedulerEnabled">
+              <option value="" disabled>Select a channel</option>
               <option v-for="ch in channels" :key="ch.id" :value="ch.id">
                 #{{ ch.name }} ({{ ch.guild }})
               </option>
             </select>
-            <small v-if="channelError" style="color: #ed4245;">Error: {{ channelError }}</small>
-            <small v-else>The bot must be online to populate this list.</small>
+            <input
+              v-else
+              v-model="formData.schedulerChannelId"
+              type="text"
+              placeholder="Paste channel ID (right-click channel in Discord → Copy ID)"
+              :required="formData.schedulerEnabled"
+            />
+            <small v-if="channelError" style="color: #ed4245;">{{ channelError }} — paste the channel ID manually instead.</small>
+            <small v-else-if="!channels.length">Enable Developer Mode in Discord (Settings → App Settings → Advanced) to copy channel IDs.</small>
           </div>
 
           <div class="form-group">
