@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import storage from '../storage/StorageManager.js';
 import CommandHandler from './CommandHandler.js';
 import EventHandler from './EventHandler.js';
+import PlexScheduler from './integrations/PlexScheduler.js';
 import chokidar from 'chokidar';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -73,6 +74,9 @@ class BotManager {
     });
 
     this.watcher.on('change', async (filePath) => {
+      // Skip reload if PlexScheduler is writing (prevents reload loop)
+      if (PlexScheduler.isWriting()) return;
+
       const botId = path.basename(filePath, '.json');
       console.log(`[BotManager] Config changed for bot ${botId}`);
 
@@ -144,6 +148,9 @@ class BotManager {
         eventHandler
       });
 
+      // Start Plex schedulers for this bot
+      PlexScheduler.startForBot(botId, botConfig, client);
+
       console.log(`[BotManager] Bot ${botId} started successfully`);
       return true;
     } catch (error) {
@@ -175,6 +182,9 @@ class BotManager {
     const botInstance = this.bots.get(botId);
 
     try {
+      // Stop Plex schedulers for this bot
+      PlexScheduler.stopForBot(botId);
+
       // Destroy Discord client
       botInstance.client.destroy();
 
@@ -226,6 +236,9 @@ class BotManager {
     // Reload handlers
     botInstance.commandHandler.reloadCommands(newConfig);
     botInstance.eventHandler.reloadEvents(newConfig);
+
+    // Reload Plex schedulers with new config
+    PlexScheduler.reloadForBot(botId, newConfig, botInstance.client);
 
     this.emitLog(botId, 'Configuration reloaded');
   }
@@ -285,6 +298,8 @@ class BotManager {
     );
 
     await Promise.all(stopPromises);
+
+    PlexScheduler.stopAll();
 
     if (this.watcher) {
       await this.watcher.close();

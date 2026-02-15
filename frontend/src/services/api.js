@@ -68,6 +68,11 @@ export const botService = {
   async getBotLogs(botId, lines = 100) {
     const response = await api.get(`/bots/${botId}/logs`, { params: { lines } });
     return response.data.data;
+  },
+
+  async getBotChannels(botId) {
+    const response = await api.get(`/bots/${botId}/channels`);
+    return response.data.data;
   }
 };
 

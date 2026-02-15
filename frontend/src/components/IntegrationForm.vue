@@ -53,6 +53,44 @@
         />
       </div>
 
+      <!-- Plex Newsletter Scheduler -->
+      <div v-if="formData.service === 'plex'" class="scheduler-section">
+        <h4>Newsletter Scheduler</h4>
+        <small class="scheduler-help">Automatically post new Plex additions to a Discord channel.</small>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="formData.schedulerEnabled" />
+            Enable Newsletter Scheduler
+          </label>
+        </div>
+
+        <div v-if="formData.schedulerEnabled">
+          <div class="form-group">
+            <label>Discord Channel *</label>
+            <select v-model="formData.schedulerChannelId" :required="formData.schedulerEnabled">
+              <option value="" disabled>
+                {{ channels.length ? 'Select a channel' : 'Bot must be running to load channels' }}
+              </option>
+              <option v-for="ch in channels" :key="ch.id" :value="ch.id">
+                #{{ ch.name }} ({{ ch.guild }})
+              </option>
+            </select>
+            <small>The bot must be online to populate this list.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Check Interval *</label>
+            <select v-model="formData.schedulerInterval" :required="formData.schedulerEnabled">
+              <option value="hourly">Every Hour</option>
+              <option value="every6h">Every 6 Hours</option>
+              <option value="daily">Daily (9:00 AM)</option>
+              <option value="weekly">Weekly (Monday 9:00 AM)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button type="button" @click="$emit('cancel')" class="btn btn-secondary">
           Cancel
@@ -66,7 +104,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { botService } from '../services/api';
 
 const props = defineProps({
   integration: {
@@ -76,6 +115,10 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  botId: {
+    type: String,
+    default: null
   }
 });
 
@@ -88,7 +131,22 @@ const formData = ref({
   service: props.integration?.service || 'plex',
   apiUrl: props.integration?.config?.apiUrl || '',
   apiKey: props.integration?.config?.apiKey || '',
-  serverName: props.integration?.config?.serverName || ''
+  serverName: props.integration?.config?.serverName || '',
+  schedulerEnabled: props.integration?.config?.scheduler?.enabled || false,
+  schedulerChannelId: props.integration?.config?.scheduler?.channelId || '',
+  schedulerInterval: props.integration?.config?.scheduler?.interval || 'daily'
+});
+
+const channels = ref([]);
+
+onMounted(async () => {
+  if (props.botId) {
+    try {
+      channels.value = await botService.getBotChannels(props.botId);
+    } catch (err) {
+      console.warn('Could not load channels (bot may be offline):', err.message);
+    }
+  }
 });
 
 const apiUrlPlaceholder = computed(() => {
@@ -140,8 +198,17 @@ function handleSubmit() {
     }
   };
 
-  if (formData.value.service === 'plex' && formData.value.serverName) {
-    integration.config.serverName = formData.value.serverName;
+  if (formData.value.service === 'plex') {
+    if (formData.value.serverName) {
+      integration.config.serverName = formData.value.serverName;
+    }
+    integration.config.scheduler = {
+      enabled: formData.value.schedulerEnabled,
+      channelId: formData.value.schedulerChannelId,
+      interval: formData.value.schedulerInterval,
+      lastChecked: props.integration?.config?.scheduler?.lastChecked || null,
+      announcedIds: props.integration?.config?.scheduler?.announcedIds || []
+    };
   }
 
   emit('submit', integration);
@@ -229,5 +296,35 @@ function handleSubmit() {
 .btn-secondary {
   background: #4f545c;
   color: #fff;
+}
+
+.scheduler-section {
+  border-top: 1px solid #40444b;
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+}
+
+.scheduler-section h4 {
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.scheduler-help {
+  display: block;
+  color: #72767d;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #b9bbbe;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
 }
 </style>

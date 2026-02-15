@@ -200,6 +200,7 @@
           <IntegrationForm
             v-if="showIntegrationForm"
             :loading="submitting"
+            :botId="bot.id"
             @submit="handleAddIntegration"
             @cancel="showIntegrationForm = false"
           />
@@ -215,6 +216,9 @@
                   <h4>{{ integration.name || 'Unnamed integration' }}</h4>
                   <p>Service: <strong>{{ integration.service }}</strong></p>
                   <p>API URL: {{ integration.config?.apiUrl || 'Not configured' }}</p>
+                  <p v-if="integration.config?.scheduler?.enabled" class="scheduler-active">
+                    Newsletter: Active ({{ integration.config.scheduler.interval }})
+                  </p>
                 </div>
                 <button @click="handleDeleteIntegration(integration.id)" class="btn-delete">
                   🗑 Delete
@@ -727,5 +731,10 @@ function formatDate(dateString) {
 .log-entry {
   padding: 0.25rem 0;
   border-bottom: 1px solid #2f3136;
+}
+
+.scheduler-active {
+  color: #3ba55d;
+  font-weight: 600;
 }
 </style>

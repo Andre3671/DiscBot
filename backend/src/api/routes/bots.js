@@ -179,6 +179,37 @@ router.get('/:id/logs', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/bots/:id/channels
+ * Get available text channels for the bot (bot must be running)
+ */
+router.get('/:id/channels', async (req, res) => {
+  try {
+    const { default: BotManager } = await import('../../bot/BotManager.js');
+
+    if (!BotManager.isRunning(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bot must be running to fetch channels'
+      });
+    }
+
+    const botInstance = BotManager.bots.get(req.params.id);
+    const channels = botInstance.client.channels.cache
+      .filter(ch => ch.type === 0) // GuildText
+      .map(ch => ({
+        id: ch.id,
+        name: ch.name,
+        guild: ch.guild?.name || 'Unknown'
+      }));
+
+    res.json({ success: true, data: channels });
+  } catch (error) {
+    console.error(`[API] Error fetching channels for bot ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== Commands Routes ==========
 
 /**
