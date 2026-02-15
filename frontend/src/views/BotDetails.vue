@@ -201,8 +201,9 @@
             v-if="showIntegrationForm"
             :loading="submitting"
             :botId="bot.id"
-            @submit="handleAddIntegration"
-            @cancel="showIntegrationForm = false"
+            :integration="editingIntegration"
+            @submit="handleSaveIntegration"
+            @cancel="showIntegrationForm = false; editingIntegration = null"
           />
 
           <p v-if="!showIntegrationForm && (!bot.integrations || bot.integrations.length === 0)" class="empty">
@@ -220,9 +221,14 @@
                     Newsletter: Active ({{ integration.config.scheduler.interval }})
                   </p>
                 </div>
-                <button @click="handleDeleteIntegration(integration.id)" class="btn-delete">
-                  🗑 Delete
-                </button>
+                <div class="integration-actions">
+                  <button @click="handleEditIntegration(integration)" class="btn-edit-sm">
+                    Edit
+                  </button>
+                  <button @click="handleDeleteIntegration(integration.id)" class="btn-delete">
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -270,6 +276,7 @@ const tabs = ['Overview', 'Commands', 'Events', 'Integrations', 'Logs'];
 const showCommandForm = ref(false);
 const showEventForm = ref(false);
 const showIntegrationForm = ref(false);
+const editingIntegration = ref(null);
 
 const editingInfo = ref(false);
 const editInfo = ref({ name: '', prefix: '' });
@@ -409,15 +416,25 @@ async function handleDeleteEvent(eventId) {
   }
 }
 
-async function handleAddIntegration(integrationData) {
+function handleEditIntegration(integration) {
+  editingIntegration.value = integration;
+  showIntegrationForm.value = true;
+}
+
+async function handleSaveIntegration(integrationData) {
   try {
     submitting.value = true;
-    await integrationService.addIntegration(bot.value.id, integrationData);
+    if (editingIntegration.value) {
+      await integrationService.updateIntegration(bot.value.id, editingIntegration.value.id, integrationData);
+    } else {
+      await integrationService.addIntegration(bot.value.id, integrationData);
+    }
     await loadBot();
     showIntegrationForm.value = false;
-    alert('Integration added successfully!');
+    editingIntegration.value = null;
+    alert(editingIntegration.value ? 'Integration updated!' : 'Integration added!');
   } catch (error) {
-    alert('Failed to add integration: ' + error.message);
+    alert('Failed to save integration: ' + error.message);
   } finally {
     submitting.value = false;
   }
@@ -731,6 +748,22 @@ function formatDate(dateString) {
 .log-entry {
   padding: 0.25rem 0;
   border-bottom: 1px solid #2f3136;
+}
+
+.integration-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-edit-sm {
+  background: #5865f2;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .scheduler-active {
