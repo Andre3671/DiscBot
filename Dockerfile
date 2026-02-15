@@ -41,13 +41,13 @@ EXPOSE 3000
 # Unraid Template Labels
 LABEL net.unraid.docker.managed="dockerman" \
       net.unraid.docker.webui="http://[IP]:[PORT:9090]" \
-      net.unraid.docker.icon="https://raw.githubusercontent.com/andreroygaard/discbot/main/icon.png" \
+      net.unraid.docker.icon="https://raw.githubusercontent.com/Andre3671/DiscBot/main/icon.png" \
       net.unraid.docker.shell="sh" \
       org.opencontainers.image.title="DiscBot" \
       org.opencontainers.image.description="Create, customize, and manage multiple Discord bots through an easy-to-use web interface" \
       org.opencontainers.image.vendor="andreroygaard" \
-      org.opencontainers.image.url="https://github.com/andreroygaard/discbot" \
-      org.opencontainers.image.source="https://github.com/andreroygaard/discbot"
+      org.opencontainers.image.url="https://github.com/Andre3671/DiscBot" \
+      org.opencontainers.image.source="https://github.com/Andre3671/DiscBot"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

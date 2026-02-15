@@ -7,13 +7,13 @@
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/andreroygaard/discbot</Support>
-  <Project>https://github.com/andreroygaard/discbot</Project>
+  <Support>https://github.com/Andre3671/DiscBot</Support>
+  <Project>https://github.com/Andre3671/DiscBot</Project>
   <Overview>DiscBot - Create, customize, and manage multiple Discord bots through an easy-to-use web interface. Features include custom commands, event handlers, moderation tools, and integrations with Plex, Sonarr, and Radarr.</Overview>
   <Category>Tools: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:9090]</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/andreroygaard/discbot/main/unraid-template.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/andreroygaard/discbot/main/icon.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/Andre3671/DiscBot/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Andre3671/DiscBot/main/icon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
