@@ -18,7 +18,7 @@ RUN npm run build
 # Stage 2: Setup Backend and Final Image
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /app/backend
 
 # Copy backend package files
 COPY backend/package*.json ./
@@ -30,7 +30,7 @@ RUN npm ci --production
 COPY backend/ .
 
 # Copy built frontend from stage 1
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # Create data directories
 RUN mkdir -p /app/data/bots /app/data/logs
