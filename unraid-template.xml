@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>DiscBot</Name>
+  <Repository>andreroygaard/discbot:latest</Repository>
+  <Registry>https://hub.docker.com/r/andreroygaard/discbot</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/andreroygaard/discbot</Support>
+  <Project>https://github.com/andreroygaard/discbot</Project>
+  <Overview>DiscBot - Create, customize, and manage multiple Discord bots through an easy-to-use web interface. Features include custom commands, event handlers, moderation tools, and integrations with Plex, Sonarr, and Radarr.</Overview>
+  <Category>Tools: Status:Stable</Category>
+  <WebUI>http://[IP]:[PORT:9090]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/andreroygaard/discbot/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/andreroygaard/discbot/main/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled></DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="3000" Default="9090" Mode="tcp" Description="Web interface and API port" Type="Port" Display="always" Required="true" Mask="false">9090</Config>
+  <Config Name="Bot Configurations" Target="/app/data/bots" Default="/mnt/user/appdata/discbot/data/bots" Mode="rw" Description="Directory for storing bot configuration files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/discbot/data/bots</Config>
+  <Config Name="Application Logs" Target="/app/data/logs" Default="/mnt/user/appdata/discbot/data/logs" Mode="rw" Description="Directory for application logs" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/discbot/data/logs</Config>
+  <Config Name="Server Port" Target="PORT" Default="3000" Mode="" Description="Internal server port (usually keep as 3000)" Type="Variable" Display="advanced" Required="false" Mask="false">3000</Config>
+  <Config Name="Node Environment" Target="NODE_ENV" Default="production" Mode="" Description="Node.js environment mode" Type="Variable" Display="advanced" Required="false" Mask="false">production</Config>
+  <Config Name="CORS Origin" Target="CORS_ORIGIN" Default="*" Mode="" Description="CORS allowed origins (default: all)" Type="Variable" Display="advanced" Required="false" Mask="false">*</Config>
+</Container>
