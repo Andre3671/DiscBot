@@ -130,7 +130,7 @@ class PlexIntegration {
         params
       });
 
-      return response.data?.MediaContainer?.Metadata || [];
+      return response.data?.MediaContainer?.Metadata || response.data?.MediaContainer?.Directory || [];
     } catch (error) {
       console.error('[PlexIntegration] API Error:', error.message);
       throw error;
