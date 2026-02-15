@@ -1,4 +1,5 @@
 import express from 'express';
+import { ChannelType } from 'discord.js';
 import storage from '../../storage/StorageManager.js';
 
 const router = express.Router();
@@ -195,14 +196,21 @@ router.get('/:id/channels', async (req, res) => {
     }
 
     const botInstance = BotManager.bots.get(req.params.id);
-    const channels = botInstance.client.channels.cache
-      .filter(ch => ch.type === 0) // GuildText
-      .map(ch => ({
-        id: ch.id,
-        name: ch.name,
-        guild: ch.guild?.name || 'Unknown'
-      }));
+    const cache = botInstance.client.channels.cache;
+    console.log(`[API] Channel cache size: ${cache.size}, types: ${[...new Set(cache.map(ch => ch.type))]}`);
 
+    const channels = [];
+    cache.forEach(ch => {
+      if (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement) {
+        channels.push({
+          id: ch.id,
+          name: ch.name,
+          guild: ch.guild?.name || 'Unknown'
+        });
+      }
+    });
+
+    console.log(`[API] Returning ${channels.length} text channels`);
     res.json({ success: true, data: channels });
   } catch (error) {
     console.error(`[API] Error fetching channels for bot ${req.params.id}:`, error);

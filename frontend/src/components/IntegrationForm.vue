@@ -76,7 +76,8 @@
                 #{{ ch.name }} ({{ ch.guild }})
               </option>
             </select>
-            <small>The bot must be online to populate this list.</small>
+            <small v-if="channelError" style="color: #ed4245;">Error: {{ channelError }}</small>
+            <small v-else>The bot must be online to populate this list.</small>
           </div>
 
           <div class="form-group">
@@ -139,12 +140,17 @@ const formData = ref({
 
 const channels = ref([]);
 
+const channelError = ref('');
+
 onMounted(async () => {
   if (props.botId) {
     try {
-      channels.value = await botService.getBotChannels(props.botId);
+      const result = await botService.getBotChannels(props.botId);
+      channels.value = result || [];
+      console.log('Loaded channels:', channels.value.length);
     } catch (err) {
-      console.warn('Could not load channels (bot may be offline):', err.message);
+      channelError.value = err.response?.data?.error || err.message;
+      console.warn('Could not load channels:', channelError.value);
     }
   }
 });
