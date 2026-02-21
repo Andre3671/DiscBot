@@ -200,10 +200,12 @@ router.get('/:id/channels', async (req, res) => {
 
     // Fetch all guilds and their channels via API (cache may be empty on first request)
     const guilds = await client.guilds.fetch();
+    console.log(`[API] guilds.fetch() returned ${guilds.size} guild(s)`);
     const channels = [];
     for (const [, oauthGuild] of guilds) {
       const guild = await client.guilds.fetch(oauthGuild.id);
       const guildChannels = await guild.channels.fetch();
+      console.log(`[API] Guild "${guild.name}": ${guildChannels.size} total channels`);
       guildChannels.forEach(ch => {
         if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement)) {
           channels.push({ id: ch.id, name: ch.name, guild: guild.name });
