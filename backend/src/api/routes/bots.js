@@ -392,4 +392,26 @@ router.delete('/:id/integrations/:intId', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/bots/:id/integrations/:intId/test-newsletter
+ * Trigger a manual test of the Plex newsletter scheduler
+ */
+router.post('/:id/integrations/:intId/test-newsletter', async (req, res) => {
+  try {
+    const { default: BotManager } = await import('../../bot/BotManager.js');
+    const { default: PlexScheduler } = await import('../../bot/integrations/PlexScheduler.js');
+
+    if (!BotManager.isRunning(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Bot must be running to send a test newsletter' });
+    }
+
+    const botInstance = BotManager.bots.get(req.params.id);
+    const result = await PlexScheduler.testCheck(req.params.id, req.params.intId, botInstance.client);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error(`[API] Error running test newsletter for integration ${req.params.intId}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

@@ -142,6 +142,11 @@ export const integrationService = {
   async deleteIntegration(botId, integrationId) {
     const response = await api.delete(`/bots/${botId}/integrations/${integrationId}`);
     return response.data;
+  },
+
+  async testNewsletter(botId, integrationId) {
+    const response = await api.post(`/bots/${botId}/integrations/${integrationId}/test-newsletter`);
+    return response.data;
   }
 };
 

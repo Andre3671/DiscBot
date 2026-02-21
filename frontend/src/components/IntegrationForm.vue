@@ -94,6 +94,15 @@
               <option value="weekly">Weekly (Monday 9:00 AM)</option>
             </select>
           </div>
+
+          <div v-if="isEdit && formData.schedulerChannelId" class="form-group">
+            <button type="button" class="btn btn-test" :disabled="testLoading" @click="handleTestNewsletter">
+              {{ testLoading ? 'Sending...' : 'Send Test Newsletter' }}
+            </button>
+            <small v-if="testResult" :class="testResult.ok ? 'test-ok' : 'test-error'">
+              {{ testResult.message }}
+            </small>
+          </div>
         </div>
       </div>
 
@@ -111,7 +120,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { botService } from '../services/api';
+import { botService, integrationService } from '../services/api';
 
 const props = defineProps({
   integration: {
@@ -144,8 +153,9 @@ const formData = ref({
 });
 
 const channels = ref([]);
-
 const channelError = ref('');
+const testLoading = ref(false);
+const testResult = ref(null);
 
 onMounted(async () => {
   if (props.botId) {
@@ -198,6 +208,19 @@ const apiKeyHelp = computed(() => {
       return 'Your service API key or token';
   }
 });
+
+async function handleTestNewsletter() {
+  testResult.value = null;
+  testLoading.value = true;
+  try {
+    const result = await integrationService.testNewsletter(props.botId, props.integration.id);
+    testResult.value = { ok: true, message: result.data.message };
+  } catch (err) {
+    testResult.value = { ok: false, message: err.response?.data?.error || err.message };
+  } finally {
+    testLoading.value = false;
+  }
+}
 
 function handleSubmit() {
   const integration = {
@@ -337,5 +360,18 @@ function handleSubmit() {
 
 .checkbox-label input[type="checkbox"] {
   width: auto;
+}
+
+.btn-test {
+  background: #4f545c;
+  color: #fff;
+}
+
+.test-ok {
+  color: #57f287;
+}
+
+.test-error {
+  color: #ed4245;
 }
 </style>
