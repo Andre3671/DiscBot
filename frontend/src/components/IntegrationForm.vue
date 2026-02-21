@@ -95,14 +95,15 @@
             </select>
           </div>
 
-          <div v-if="isEdit && formData.schedulerChannelId" class="form-group">
-            <button type="button" class="btn btn-test" :disabled="testLoading" @click="handleTestNewsletter">
-              {{ testLoading ? 'Sending...' : 'Send Test Newsletter' }}
-            </button>
-            <small v-if="testResult" :class="testResult.ok ? 'test-ok' : 'test-error'">
-              {{ testResult.message }}
-            </small>
-          </div>
+        </div>
+
+        <div v-if="isEdit && formData.schedulerChannelId" class="form-group">
+          <button type="button" class="btn btn-test" :disabled="testLoading" @click="handleTestNewsletter">
+            {{ testLoading ? 'Sending...' : 'Send Test Newsletter' }}
+          </button>
+          <small v-if="testResult" :class="testResult.ok ? 'test-ok' : 'test-error'">
+            {{ testResult.message }}
+          </small>
         </div>
       </div>
 
