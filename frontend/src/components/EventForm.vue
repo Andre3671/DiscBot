@@ -63,37 +63,62 @@
         </div>
       </div>
 
-      <!-- Channel Configuration -->
+      <!-- Welcome Channel -->
       <div v-if="['guildMemberAdd'].includes(formData.eventType)" class="form-group">
-        <label>Welcome Channel ID</label>
+        <label>Welcome Channel</label>
+        <select v-if="channels.length" v-model="formData.welcomeChannelId">
+          <option value="">None</option>
+          <option v-for="ch in channels" :key="ch.id" :value="ch.id">
+            #{{ ch.name }} ({{ ch.guild }})
+          </option>
+        </select>
         <input
+          v-else
           v-model="formData.welcomeChannelId"
           type="text"
-          placeholder="123456789012345678"
+          placeholder="Paste channel ID"
         />
-        <small>The channel where welcome messages will be sent</small>
+        <small v-if="channelError" style="color: #ed4245;">{{ channelError }}</small>
+        <small v-else>The channel where welcome messages will be sent</small>
       </div>
 
+      <!-- Log Channel -->
       <div v-if="['messageDelete', 'messageUpdate', 'guildMemberRemove'].includes(formData.eventType)" class="form-group">
-        <label>Log Channel ID</label>
+        <label>Log Channel</label>
+        <select v-if="channels.length" v-model="formData.logChannelId">
+          <option value="">None</option>
+          <option v-for="ch in channels" :key="ch.id" :value="ch.id">
+            #{{ ch.name }} ({{ ch.guild }})
+          </option>
+        </select>
         <input
+          v-else
           v-model="formData.logChannelId"
           type="text"
-          placeholder="123456789012345678"
+          placeholder="Paste channel ID"
         />
-        <small>The channel where events will be logged</small>
+        <small v-if="channelError" style="color: #ed4245;">{{ channelError }}</small>
+        <small v-else>The channel where events will be logged</small>
       </div>
 
       <!-- Role Assignment -->
       <div v-if="formData.actionType === 'assignRole'" class="form-group">
-        <label>Role ID *</label>
+        <label>Role *</label>
+        <select v-if="roles.length" v-model="formData.roleId" required>
+          <option value="" disabled>Select a role</option>
+          <option v-for="r in roles" :key="r.id" :value="r.id">
+            {{ r.name }} ({{ r.guild }})
+          </option>
+        </select>
         <input
+          v-else
           v-model="formData.roleId"
           type="text"
-          placeholder="123456789012345678"
+          placeholder="Paste role ID"
           required
         />
-        <small>The role to assign to users</small>
+        <small v-if="roleError" style="color: #ed4245;">{{ roleError }}</small>
+        <small v-else>The role to assign to users</small>
       </div>
 
       <div class="form-actions">
@@ -109,17 +134,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { botService } from '../services/api';
 
 const props = defineProps({
-  event: {
-    type: Object,
-    default: null
-  },
-  loading: {
-    type: Boolean,
-    default: false
-  }
+  event: { type: Object, default: null },
+  loading: { type: Boolean, default: false },
+  botId: { type: String, default: null }
 });
 
 const emit = defineEmits(['submit', 'cancel']);
@@ -142,13 +163,30 @@ const embedData = ref({
   color: props.event?.action?.embedData?.color || '#00ff00'
 });
 
+const channels = ref([]);
+const roles = ref([]);
+const channelError = ref('');
+const roleError = ref('');
+
+onMounted(async () => {
+  if (!props.botId) return;
+  try {
+    channels.value = await botService.getBotChannels(props.botId) || [];
+  } catch (err) {
+    channelError.value = 'Could not load channels — paste ID manually';
+  }
+  try {
+    roles.value = await botService.getBotRoles(props.botId) || [];
+  } catch (err) {
+    roleError.value = 'Could not load roles — paste ID manually';
+  }
+});
+
 function handleSubmit() {
   const event = {
     name: formData.value.name,
     eventType: formData.value.eventType,
-    action: {
-      type: formData.value.actionType
-    },
+    action: { type: formData.value.actionType },
     config: {}
   };
 

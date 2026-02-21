@@ -19,10 +19,47 @@
           <option value="plex">Plex Media Server</option>
           <option value="sonarr">Sonarr</option>
           <option value="radarr">Radarr</option>
+          <option value="starboard">Starboard</option>
         </select>
       </div>
 
-      <div class="form-group">
+      <!-- Starboard config -->
+      <div v-if="formData.service === 'starboard'" class="scheduler-section">
+        <h4>Starboard Settings</h4>
+        <small class="scheduler-help">Pin popular messages to a dedicated channel when they reach a reaction threshold.</small>
+
+        <div class="form-group">
+          <label>Starboard Channel *</label>
+          <select v-if="channels.length" v-model="formData.starboardChannelId" required>
+            <option value="" disabled>Select a channel</option>
+            <option v-for="ch in channels" :key="ch.id" :value="ch.id">
+              #{{ ch.name }} ({{ ch.guild }})
+            </option>
+          </select>
+          <input
+            v-else
+            v-model="formData.starboardChannelId"
+            type="text"
+            placeholder="Paste channel ID"
+            required
+          />
+          <small v-if="channelError" style="color: #ed4245;">{{ channelError }}</small>
+        </div>
+
+        <div class="form-group">
+          <label>Reaction Emoji</label>
+          <input v-model="formData.starboardEmoji" type="text" placeholder="⭐" />
+          <small>The emoji that triggers the starboard (default: ⭐)</small>
+        </div>
+
+        <div class="form-group">
+          <label>Reaction Threshold</label>
+          <input v-model.number="formData.starboardThreshold" type="number" min="1" max="100" placeholder="3" />
+          <small>Number of reactions needed to post to starboard</small>
+        </div>
+      </div>
+
+      <div v-if="formData.service !== 'starboard'" class="form-group">
         <label>API URL *</label>
         <input
           v-model="formData.apiUrl"
@@ -33,7 +70,7 @@
         <small>{{ apiUrlHelp }}</small>
       </div>
 
-      <div class="form-group">
+      <div v-if="formData.service !== 'starboard'" class="form-group">
         <label>API Key / Token *</label>
         <input
           v-model="formData.apiKey"
@@ -150,7 +187,10 @@ const formData = ref({
   serverName: props.integration?.config?.serverName || '',
   schedulerEnabled: props.integration?.config?.scheduler?.enabled || false,
   schedulerChannelId: props.integration?.config?.scheduler?.channelId || '',
-  schedulerInterval: props.integration?.config?.scheduler?.interval || 'daily'
+  schedulerInterval: props.integration?.config?.scheduler?.interval || 'daily',
+  starboardChannelId: props.integration?.config?.channelId || '',
+  starboardEmoji: props.integration?.config?.emoji || '⭐',
+  starboardThreshold: props.integration?.config?.threshold || 3
 });
 
 const channels = ref([]);
@@ -227,23 +267,33 @@ function handleSubmit() {
   const integration = {
     name: formData.value.name,
     service: formData.value.service,
-    config: {
-      apiUrl: formData.value.apiUrl,
-      apiKey: formData.value.apiKey
-    }
+    config: {}
   };
 
-  if (formData.value.service === 'plex') {
-    if (formData.value.serverName) {
-      integration.config.serverName = formData.value.serverName;
-    }
-    integration.config.scheduler = {
-      enabled: formData.value.schedulerEnabled,
-      channelId: formData.value.schedulerChannelId,
-      interval: formData.value.schedulerInterval,
-      lastChecked: props.integration?.config?.scheduler?.lastChecked || null,
-      announcedIds: props.integration?.config?.scheduler?.announcedIds || []
+  if (formData.value.service === 'starboard') {
+    integration.config = {
+      channelId: formData.value.starboardChannelId,
+      emoji: formData.value.starboardEmoji || '⭐',
+      threshold: formData.value.starboardThreshold || 3,
+      postedMessageIds: props.integration?.config?.postedMessageIds || []
     };
+  } else {
+    integration.config = {
+      apiUrl: formData.value.apiUrl,
+      apiKey: formData.value.apiKey
+    };
+    if (formData.value.service === 'plex') {
+      if (formData.value.serverName) {
+        integration.config.serverName = formData.value.serverName;
+      }
+      integration.config.scheduler = {
+        enabled: formData.value.schedulerEnabled,
+        channelId: formData.value.schedulerChannelId,
+        interval: formData.value.schedulerInterval,
+        lastChecked: props.integration?.config?.scheduler?.lastChecked || null,
+        announcedIds: props.integration?.config?.scheduler?.announcedIds || []
+      };
+    }
   }
 
   emit('submit', integration);

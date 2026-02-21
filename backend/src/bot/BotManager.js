@@ -1,8 +1,9 @@
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, ActivityType } from 'discord.js';
 import storage from '../storage/StorageManager.js';
 import CommandHandler from './CommandHandler.js';
 import EventHandler from './EventHandler.js';
 import PlexScheduler from './integrations/PlexScheduler.js';
+import StarboardHandler from './integrations/StarboardHandler.js';
 import chokidar from 'chokidar';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -74,8 +75,8 @@ class BotManager {
     });
 
     this.watcher.on('change', async (filePath) => {
-      // Skip reload if PlexScheduler is writing (prevents reload loop)
-      if (PlexScheduler.isWriting()) return;
+      // Skip reload if a handler is writing (prevents reload loop)
+      if (PlexScheduler.isWriting() || StarboardHandler.isWriting()) return;
 
       const botId = path.basename(filePath, '.json');
       console.log(`[BotManager] Config changed for bot ${botId}`);
@@ -134,6 +135,7 @@ class BotManager {
       this.emitLog(botId, `Bot ready as ${client.user.tag}`);
       storage.updateBot(botId, { status: 'online' });
       this.emitStatus(botId, 'online');
+      this.applyActivity(client, botConfig);
     });
 
     // Login to Discord
@@ -148,8 +150,9 @@ class BotManager {
         eventHandler
       });
 
-      // Start Plex schedulers for this bot
+      // Start Plex schedulers and Starboard for this bot
       PlexScheduler.startForBot(botId, botConfig, client);
+      StarboardHandler.startForBot(botId, botConfig, client);
 
       console.log(`[BotManager] Bot ${botId} started successfully`);
       return true;
@@ -182,8 +185,9 @@ class BotManager {
     const botInstance = this.bots.get(botId);
 
     try {
-      // Stop Plex schedulers for this bot
+      // Stop Plex schedulers and Starboard for this bot
       PlexScheduler.stopForBot(botId);
+      StarboardHandler.stopForBot(botId);
 
       // Destroy Discord client
       botInstance.client.destroy();
@@ -237,10 +241,36 @@ class BotManager {
     botInstance.commandHandler.reloadCommands(newConfig);
     botInstance.eventHandler.reloadEvents(newConfig);
 
-    // Reload Plex schedulers with new config
+    // Reload Plex schedulers and Starboard with new config
     PlexScheduler.reloadForBot(botId, newConfig, botInstance.client);
+    StarboardHandler.reloadForBot(botId, newConfig, botInstance.client);
+
+    // Re-apply activity if it changed
+    this.applyActivity(botInstance.client, newConfig);
 
     this.emitLog(botId, 'Configuration reloaded');
+  }
+
+  /**
+   * Apply activity/presence from bot config
+   */
+  applyActivity(client, config) {
+    const activity = config.settings?.activity;
+    if (!client.user) return;
+    const typeMap = {
+      PLAYING: ActivityType.Playing,
+      WATCHING: ActivityType.Watching,
+      LISTENING: ActivityType.Listening,
+      COMPETING: ActivityType.Competing,
+    };
+    if (activity?.text) {
+      client.user.setPresence({
+        activities: [{ name: activity.text, type: typeMap[activity.type] ?? ActivityType.Playing }],
+        status: 'online'
+      });
+    } else {
+      client.user.setPresence({ activities: [], status: 'online' });
+    }
   }
 
   /**
@@ -300,6 +330,7 @@ class BotManager {
     await Promise.all(stopPromises);
 
     PlexScheduler.stopAll();
+    StarboardHandler.stopAll();
 
     if (this.watcher) {
       await this.watcher.close();

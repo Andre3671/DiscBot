@@ -221,6 +221,40 @@ router.get('/:id/channels', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/bots/:id/roles
+ * Get available roles for the bot (bot must be running)
+ */
+router.get('/:id/roles', async (req, res) => {
+  try {
+    const { default: BotManager } = await import('../../bot/BotManager.js');
+
+    if (!BotManager.isRunning(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Bot must be running to fetch roles' });
+    }
+
+    const botInstance = BotManager.bots.get(req.params.id);
+    const client = botInstance.client;
+
+    const guilds = await client.guilds.fetch();
+    const roles = [];
+    for (const [, oauthGuild] of guilds) {
+      const guild = await client.guilds.fetch(oauthGuild.id);
+      const guildRoles = await guild.roles.fetch();
+      guildRoles.forEach(role => {
+        if (!role.managed && role.name !== '@everyone') {
+          roles.push({ id: role.id, name: role.name, guild: guild.name });
+        }
+      });
+    }
+
+    res.json({ success: true, data: roles });
+  } catch (error) {
+    console.error(`[API] Error fetching roles for bot ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== Commands Routes ==========
 
 /**

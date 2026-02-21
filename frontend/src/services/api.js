@@ -73,6 +73,11 @@ export const botService = {
   async getBotChannels(botId) {
     const response = await api.get(`/bots/${botId}/channels`);
     return response.data.data;
+  },
+
+  async getBotRoles(botId) {
+    const response = await api.get(`/bots/${botId}/roles`);
+    return response.data.data;
   }
 };
 

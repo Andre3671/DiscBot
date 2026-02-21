@@ -92,6 +92,20 @@
                 <label>Prefix</label>
                 <input v-model="editInfo.prefix" type="text" maxlength="3" />
               </div>
+              <div class="form-group">
+                <label>Activity Type</label>
+                <select v-model="editInfo.activityType">
+                  <option value="">None</option>
+                  <option value="PLAYING">Playing</option>
+                  <option value="WATCHING">Watching</option>
+                  <option value="LISTENING">Listening to</option>
+                  <option value="COMPETING">Competing in</option>
+                </select>
+              </div>
+              <div v-if="editInfo.activityType" class="form-group">
+                <label>Activity Text</label>
+                <input v-model="editInfo.activityText" type="text" placeholder="Plex Media Server" />
+              </div>
               <button type="submit" class="btn btn-primary">Save Changes</button>
             </form>
           </div>
@@ -164,6 +178,7 @@
           <EventForm
             v-if="showEventForm"
             :loading="submitting"
+            :botId="bot.id"
             @submit="handleAddEvent"
             @cancel="showEventForm = false"
           />
@@ -296,7 +311,9 @@ async function loadBot() {
     bot.value = await botStore.fetchBot(route.params.id);
     editInfo.value = {
       name: bot.value.name,
-      prefix: bot.value.prefix
+      prefix: bot.value.prefix,
+      activityType: bot.value.settings?.activity?.type || '',
+      activityText: bot.value.settings?.activity?.text || ''
     };
     await botStore.updateBotStatus(route.params.id);
     botStore.subscribeToBot(route.params.id);
@@ -351,9 +368,13 @@ async function handleRestart() {
 
 async function handleUpdateInfo() {
   try {
+    const activity = editInfo.value.activityType && editInfo.value.activityText
+      ? { type: editInfo.value.activityType, text: editInfo.value.activityText }
+      : null;
     await botStore.updateBot(bot.value.id, {
       name: editInfo.value.name,
-      prefix: editInfo.value.prefix
+      prefix: editInfo.value.prefix,
+      settings: { ...bot.value.settings, activity }
     });
     bot.value.name = editInfo.value.name;
     bot.value.prefix = editInfo.value.prefix;
