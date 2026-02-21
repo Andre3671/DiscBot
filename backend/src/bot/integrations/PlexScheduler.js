@@ -173,6 +173,57 @@ class PlexScheduler {
   }
 
   /**
+   * Test check: fetch recently added items within the interval window and post to channel.
+   * Does NOT update announcedIds so the real scheduled run still picks them up.
+   */
+  async testCheck(botId, integrationId, discordClient) {
+    const botConfig = await storage.readBot(botId);
+    const integration = botConfig.integrations.find(i => i.id === integrationId);
+    if (!integration) throw new Error('Integration not found');
+
+    const scheduler = integration.config?.scheduler;
+    if (!scheduler?.channelId) throw new Error('No channel configured for scheduler');
+
+    const channel = discordClient.channels.cache.get(scheduler.channelId);
+    if (!channel) throw new Error(`Channel ${scheduler.channelId} not found (bot may not have access)`);
+
+    // Fetch recently added from Plex
+    const items = await PlexIntegration.plexRequest(integration, '/library/recentlyAdded');
+    if (!items || items.length === 0) {
+      return { sent: 0, message: 'No recently added items found on Plex.' };
+    }
+
+    // Filter by time window based on interval
+    const windowMs = {
+      hourly: 60 * 60 * 1000,
+      every6h: 6 * 60 * 60 * 1000,
+      daily: 24 * 60 * 60 * 1000,
+      weekly: 7 * 24 * 60 * 60 * 1000
+    };
+    const cutoff = Date.now() - (windowMs[scheduler.interval] || windowMs.daily);
+    const recentItems = items.filter(item => {
+      const addedAt = (item.addedAt || 0) * 1000; // Plex uses Unix seconds
+      return addedAt >= cutoff;
+    });
+
+    if (recentItems.length === 0) {
+      return { sent: 0, message: `No items added in the last ${scheduler.interval} window.` };
+    }
+
+    // Send embeds (max 5 for test)
+    let sent = 0;
+    for (const item of recentItems.slice(0, 5)) {
+      const embed = this.buildEmbed(item, integration);
+      embed.setFooter({ text: `TEST | ${integration.config.serverName || 'Plex Server'} | Recently Added` });
+      await channel.send({ embeds: [embed] });
+      sent++;
+    }
+
+    const extra = recentItems.length > 5 ? ` (showing 5 of ${recentItems.length})` : '';
+    return { sent, message: `Sent ${sent} item(s) to #${channel.name}${extra}` };
+  }
+
+  /**
    * Stop all jobs globally
    */
   stopAll() {
