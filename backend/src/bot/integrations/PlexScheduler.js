@@ -92,8 +92,10 @@ class PlexScheduler {
     const channelId = scheduler.channelId;
     if (!channelId) return;
 
-    const channel = discordClient.channels.cache.get(channelId);
-    if (!channel) {
+    let channel;
+    try {
+      channel = await discordClient.channels.fetch(channelId);
+    } catch {
       console.warn(`[PlexScheduler] Channel ${channelId} not found for bot ${botId}`);
       return;
     }
@@ -184,8 +186,12 @@ class PlexScheduler {
     const scheduler = integration.config?.scheduler;
     if (!scheduler?.channelId) throw new Error('No channel configured for scheduler');
 
-    const channel = discordClient.channels.cache.get(scheduler.channelId);
-    if (!channel) throw new Error(`Channel ${scheduler.channelId} not found (bot may not have access)`);
+    let channel;
+    try {
+      channel = await discordClient.channels.fetch(scheduler.channelId);
+    } catch {
+      throw new Error(`Channel ${scheduler.channelId} not found (bot may not have access)`);
+    }
 
     // Fetch recently added from Plex
     const items = await PlexIntegration.plexRequest(integration, '/library/recentlyAdded');
