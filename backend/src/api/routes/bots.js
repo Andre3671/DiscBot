@@ -196,19 +196,20 @@ router.get('/:id/channels', async (req, res) => {
     }
 
     const botInstance = BotManager.bots.get(req.params.id);
-    const cache = botInstance.client.channels.cache;
-    console.log(`[API] Channel cache size: ${cache.size}, types: ${[...new Set(cache.map(ch => ch.type))]}`);
+    const client = botInstance.client;
 
+    // Fetch all guilds and their channels via API (cache may be empty on first request)
+    const guilds = await client.guilds.fetch();
     const channels = [];
-    cache.forEach(ch => {
-      if (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement) {
-        channels.push({
-          id: ch.id,
-          name: ch.name,
-          guild: ch.guild?.name || 'Unknown'
-        });
-      }
-    });
+    for (const [, oauthGuild] of guilds) {
+      const guild = await client.guilds.fetch(oauthGuild.id);
+      const guildChannels = await guild.channels.fetch();
+      guildChannels.forEach(ch => {
+        if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement)) {
+          channels.push({ id: ch.id, name: ch.name, guild: guild.name });
+        }
+      });
+    }
 
     console.log(`[API] Returning ${channels.length} text channels`);
     res.json({ success: true, data: channels });
