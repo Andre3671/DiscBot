@@ -157,21 +157,37 @@ class PlexScheduler {
 
     for (const item of items) {
       if (item.type === 'episode' || item.type === 'season') {
-        const key = item.grandparentRatingKey || item.grandparentTitle || item.ratingKey || 'unknown';
-        if (!showMap.has(key)) {
-          showMap.set(key, {
-            ratingKey: item.grandparentRatingKey || (item.type === 'season' ? item.ratingKey : null),
-            title: item.grandparentTitle || item.title || 'Unknown Show',
-            year: item.parentYear || item.year,
-            thumb: item.grandparentThumb || item.parentThumb || item.thumb || null,
+        // Plex hierarchy: Show > Season > Episode
+        // For type=episode: grandparent = show, parent = season
+        // For type=season:  parent = show  (no grandparent)
+        let showKey, showRatingKey, showTitle, showYear, showThumb;
+        if (item.type === 'episode') {
+          showKey = item.grandparentRatingKey || item.grandparentTitle || item.ratingKey || 'unknown';
+          showRatingKey = item.grandparentRatingKey || null;
+          showTitle = item.grandparentTitle || 'Unknown Show';
+          showYear = item.year;
+          showThumb = item.grandparentThumb || item.parentThumb || item.thumb || null;
+        } else {
+          showKey = item.parentRatingKey || item.parentTitle || item.ratingKey || 'unknown';
+          showRatingKey = item.parentRatingKey || item.ratingKey || null;
+          showTitle = item.parentTitle || 'Unknown Show';
+          showYear = item.parentYear || item.year;
+          showThumb = item.parentThumb || item.thumb || null;
+        }
+
+        if (!showMap.has(showKey)) {
+          showMap.set(showKey, {
+            ratingKey: showRatingKey,
+            title: showTitle,
+            year: showYear,
+            thumb: showThumb,
             episodes: [],
             seasons: []
           });
         }
-        const show = showMap.get(key);
-        if (!show.thumb) {
-          show.thumb = item.grandparentThumb || item.parentThumb || item.thumb || null;
-        }
+        const show = showMap.get(showKey);
+        if (!show.thumb) show.thumb = showThumb;
+
         if (item.type === 'season') {
           show.seasons.push(item.title || (item.index != null ? `Season ${item.index}` : 'New Season'));
         } else {
