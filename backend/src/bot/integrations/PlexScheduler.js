@@ -114,14 +114,19 @@ class PlexScheduler {
 
     console.log(`[PlexScheduler] Found ${newItems.length} new items for bot ${botId}`);
 
-    // Send embeds (max 25 per check)
-    for (const item of newItems.slice(0, 25)) {
-      const embed = this.buildEmbed(item, freshIntegration);
+    // Build all embeds then send in batches of 10 (Discord limit per message)
+    const toAnnounce = newItems.slice(0, 25);
+    const embeds = toAnnounce.map(item => this.buildEmbed(item, freshIntegration));
+
+    for (let i = 0; i < embeds.length; i += 10) {
       try {
-        await channel.send({ embeds: [embed] });
+        await channel.send({ embeds: embeds.slice(i, i + 10) });
       } catch (err) {
-        console.error(`[PlexScheduler] Failed to send embed:`, err.message);
+        console.error(`[PlexScheduler] Failed to send embed batch:`, err.message);
       }
+    }
+
+    for (const item of toAnnounce) {
       announcedIds.add(String(item.ratingKey));
     }
 
@@ -225,17 +230,18 @@ class PlexScheduler {
       return { sent: 0, message: `No items added in the last ${scheduler.interval} window.` };
     }
 
-    // Send embeds (max 5 for test)
-    let sent = 0;
-    for (const item of recentItems.slice(0, 5)) {
+    // Build all embeds and send grouped in one message (max 10 per Discord message)
+    const toSend = recentItems.slice(0, 10);
+    const embeds = toSend.map(item => {
       const embed = this.buildEmbed(item, integration);
       embed.setFooter({ text: `TEST | ${integration.config.serverName || 'Plex Server'} | Recently Added` });
-      await channel.send({ embeds: [embed] });
-      sent++;
-    }
+      return embed;
+    });
 
-    const extra = recentItems.length > 5 ? ` (showing 5 of ${recentItems.length})` : '';
-    return { sent, message: `Sent ${sent} item(s) to #${channel.name}${extra}` };
+    await channel.send({ embeds });
+
+    const extra = recentItems.length > 10 ? ` (showing 10 of ${recentItems.length})` : '';
+    return { sent: embeds.length, message: `Sent ${embeds.length} item(s) in 1 message to #${channel.name}${extra}` };
   }
 
   /**
