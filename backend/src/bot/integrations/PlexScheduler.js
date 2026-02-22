@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import storage from '../../storage/StorageManager.js';
 import PlexIntegration from './PlexIntegration.js';
 
@@ -191,6 +191,15 @@ class PlexScheduler {
       channel = await discordClient.channels.fetch(scheduler.channelId);
     } catch {
       throw new Error(`Channel ${scheduler.channelId} not found (bot may not have access)`);
+    }
+
+    // Check bot has permission to send embeds in the channel
+    const perms = channel.permissionsFor(discordClient.user);
+    if (!perms?.has(PermissionFlagsBits.SendMessages)) {
+      throw new Error(`Bot is missing Send Messages permission in #${channel.name}`);
+    }
+    if (!perms?.has(PermissionFlagsBits.EmbedLinks)) {
+      throw new Error(`Bot is missing Embed Links permission in #${channel.name}`);
     }
 
     // Fetch recently added from Plex
