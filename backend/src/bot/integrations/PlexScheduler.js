@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import axios from 'axios';
-import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } from 'discord.js';
 import storage from '../../storage/StorageManager.js';
 import PlexIntegration from './PlexIntegration.js';
 
@@ -115,16 +115,11 @@ class PlexScheduler {
 
     console.log(`[PlexScheduler] Found ${newItems.length} new items for bot ${botId}`);
 
-    // Group items and build embeds (one per show, one per movie)
     const toAnnounce = newItems.slice(0, 25);
-    const embeds = await this.buildGroupedEmbeds(toAnnounce, freshIntegration);
-
-    for (let i = 0; i < embeds.length; i += 10) {
-      try {
-        await channel.send({ embeds: embeds.slice(i, i + 10) });
-      } catch (err) {
-        console.error(`[PlexScheduler] Failed to send embed batch:`, err.message);
-      }
+    try {
+      await this.sendGroupedItems(channel, toAnnounce, freshIntegration);
+    } catch (err) {
+      console.error(`[PlexScheduler] Failed to send newsletter:`, err.message);
     }
 
     for (const item of toAnnounce) {
@@ -144,12 +139,11 @@ class PlexScheduler {
   }
 
   /**
-   * Build grouped embeds: one embed per unique show, one per movie.
-   * Episodes of the same show are collapsed into a single embed with their
-   * show poster and a compact episode list (S01E01 · S01E02 · ...).
-   * IMDb URLs are fetched in parallel and set as the embed title link.
+   * Send grouped items as a grid: one text embed listing all titles + episode info,
+   * plus poster images downloaded from Plex sent as file attachments.
+   * Discord auto-renders multiple image attachments as a visual grid.
    */
-  async buildGroupedEmbeds(items, integration, isTest = false) {
+  async sendGroupedItems(channel, items, integration, isTest = false) {
     const baseUrl = (integration.config.apiUrl || '').replace(/\/$/, '');
     const token = integration.config.apiKey;
     const serverName = integration.config?.serverName || 'Plex Server';
@@ -157,28 +151,24 @@ class PlexScheduler {
       ? `TEST | ${serverName} | Recently Added`
       : `${serverName} | Recently Added`;
 
-    // Group episodes by show, separate movies and other
+    // Group episodes/seasons by show, separate movies
     const showMap = new Map();
     const movies = [];
-    const other = [];
 
     for (const item of items) {
       if (item.type === 'episode' || item.type === 'season') {
-        // Use grandparentRatingKey to group; fall back to grandparentTitle
         const key = item.grandparentRatingKey || item.grandparentTitle || item.ratingKey || 'unknown';
         if (!showMap.has(key)) {
           showMap.set(key, {
             ratingKey: item.grandparentRatingKey || (item.type === 'season' ? item.ratingKey : null),
             title: item.grandparentTitle || item.title || 'Unknown Show',
             year: item.parentYear || item.year,
-            // Try every thumb field in order of preference
             thumb: item.grandparentThumb || item.parentThumb || item.thumb || null,
             episodes: [],
             seasons: []
           });
         }
         const show = showMap.get(key);
-        // Keep best thumb found across items for the same show
         if (!show.thumb) {
           show.thumb = item.grandparentThumb || item.parentThumb || item.thumb || null;
         }
@@ -189,12 +179,10 @@ class PlexScheduler {
         }
       } else if (item.type === 'movie') {
         movies.push(item);
-      } else {
-        other.push(item);
       }
     }
 
-    // Fetch IMDb URLs in parallel for all unique shows and movies
+    // Fetch IMDb URLs in parallel
     const imdbUrls = new Map();
     const fetches = [];
     for (const [key, show] of showMap) {
@@ -217,74 +205,82 @@ class PlexScheduler {
     }
     await Promise.all(fetches);
 
-    const embeds = [];
+    // Build entries list with description line and thumb URL per item
+    const entries = [];
 
-    // One embed per show
     for (const [key, show] of showMap) {
-      let description;
-      let countField;
-
+      let episodeStr;
       if (show.episodes.length > 0) {
-        description = show.episodes
+        episodeStr = show.episodes
           .map(ep => {
             const s = ep.parentIndex != null ? `S${String(ep.parentIndex).padStart(2, '0')}` : '';
             const e = ep.index != null ? `E${String(ep.index).padStart(2, '0')}` : '';
             return (s + e) || ep.title;
           })
           .join(' · ');
-        countField = { name: 'New episodes', value: String(show.episodes.length), inline: true };
       } else {
-        // Season-level items: list the season names
-        description = show.seasons.join(', ');
-        countField = { name: 'New seasons', value: String(show.seasons.length), inline: true };
+        episodeStr = show.seasons.join(', ');
       }
-
-      const embed = new EmbedBuilder()
-        .setTitle(`📺 ${show.title}`)
-        .setDescription(description)
-        .setColor('#e5a00d')
-        .setFooter({ text: footerText })
-        .setTimestamp();
-
-      if (imdbUrls.has(key)) embed.setURL(imdbUrls.get(key));
-      if (show.year) embed.addFields({ name: 'Year', value: String(show.year), inline: true });
-      embed.addFields(countField);
-      if (show.thumb) embed.setThumbnail(`${baseUrl}${show.thumb}?X-Plex-Token=${token}`);
-
-      embeds.push(embed);
+      const imdbUrl = imdbUrls.get(key);
+      const titleMd = imdbUrl ? `[${show.title}](${imdbUrl})` : show.title;
+      entries.push({
+        line: `📺 **${titleMd}** — ${episodeStr}`,
+        thumbUrl: show.thumb ? `${baseUrl}${show.thumb}?X-Plex-Token=${token}` : null
+      });
     }
 
-    // One embed per movie
     for (const movie of movies) {
-      const embed = new EmbedBuilder()
-        .setTitle(`🎬 ${movie.title}`)
-        .setColor('#e5a00d')
-        .setFooter({ text: footerText })
-        .setTimestamp();
-
-      if (imdbUrls.has(movie.ratingKey)) embed.setURL(imdbUrls.get(movie.ratingKey));
-      if (movie.year) embed.addFields({ name: 'Year', value: String(movie.year), inline: true });
-      if (movie.summary) embed.setDescription(movie.summary.slice(0, 150) + (movie.summary.length > 150 ? '…' : ''));
-      if (movie.thumb) embed.setThumbnail(`${baseUrl}${movie.thumb}?X-Plex-Token=${token}`);
-
-      embeds.push(embed);
+      const imdbUrl = imdbUrls.get(movie.ratingKey);
+      const titleMd = imdbUrl ? `[${movie.title}](${imdbUrl})` : movie.title;
+      const yearStr = movie.year ? ` (${movie.year})` : '';
+      entries.push({
+        line: `🎬 **${titleMd}**${yearStr}`,
+        thumbUrl: movie.thumb ? `${baseUrl}${movie.thumb}?X-Plex-Token=${token}` : null
+      });
     }
 
-    // Anything else (albums, etc.)
-    for (const item of other) {
-      const title = item.grandparentTitle ? `${item.grandparentTitle} — ${item.title}` : item.title;
-      const embed = new EmbedBuilder()
-        .setTitle(title)
-        .setColor('#e5a00d')
-        .setFooter({ text: footerText })
-        .setTimestamp();
+    if (entries.length === 0) return;
 
-      if (item.thumb) embed.setThumbnail(`${baseUrl}${item.thumb}?X-Plex-Token=${token}`);
+    // Download poster images in parallel from Plex (failures silently skipped)
+    await Promise.all(entries.map(async (entry, i) => {
+      if (!entry.thumbUrl) return;
+      try {
+        const resp = await axios.get(entry.thumbUrl, {
+          responseType: 'arraybuffer',
+          timeout: 10000
+        });
+        entry.buffer = Buffer.from(resp.data);
+        entry.filename = `poster_${i}.jpg`;
+      } catch {
+        // Poster unavailable — grid will just have fewer images
+      }
+    }));
 
-      embeds.push(embed);
+    // Build description from all entry lines
+    const description = entries.map(e => e.line).join('\n');
+
+    // Collect poster attachments for all entries that successfully downloaded
+    const attachments = entries
+      .filter(e => e.buffer)
+      .map(e => new AttachmentBuilder(e.buffer, { name: e.filename }));
+
+    const embed = new EmbedBuilder()
+      .setTitle('🆕 New on Plex')
+      .setDescription(description)
+      .setColor('#e5a00d')
+      .setFooter({ text: footerText })
+      .setTimestamp();
+
+    // Send text embed + up to 10 poster images (Discord auto-grids multiple images)
+    await channel.send({
+      embeds: [embed],
+      files: attachments.slice(0, 10)
+    });
+
+    // Send any remaining poster batches beyond the first 10
+    for (let i = 10; i < attachments.length; i += 10) {
+      await channel.send({ files: attachments.slice(i, i + 10) });
     }
-
-    return embeds;
   }
 
   /**
@@ -360,18 +356,11 @@ class PlexScheduler {
       return { sent: 0, message: `No items added in the last ${scheduler.interval} window.` };
     }
 
-    // Build grouped embeds (one per show, one per movie) and send
     const toSend = recentItems.slice(0, 25);
-    const embeds = await this.buildGroupedEmbeds(toSend, integration, true);
+    await this.sendGroupedItems(channel, toSend, integration, true);
 
-    for (let i = 0; i < embeds.length; i += 10) {
-      await channel.send({ embeds: embeds.slice(i, i + 10) });
-    }
-
-    const itemCount = toSend.length;
-    const embedCount = embeds.length;
     const extra = recentItems.length > 25 ? ` (showing 25 of ${recentItems.length} items)` : '';
-    return { sent: embedCount, message: `Sent ${itemCount} item(s) as ${embedCount} grouped embed(s) to #${channel.name}${extra}` };
+    return { sent: toSend.length, message: `Sent ${toSend.length} item(s) as a grid to #${channel.name}${extra}` };
   }
 
   /**
