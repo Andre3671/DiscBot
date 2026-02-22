@@ -291,6 +291,21 @@ class CommandHandler {
         handler = JellyfinIntegration;
         break;
 
+      case 'tautulli':
+        const { default: TautulliIntegration } = await import('./integrations/TautulliIntegration.js');
+        handler = TautulliIntegration;
+        break;
+
+      case 'prowlarr':
+        const { default: ProwlarrIntegration } = await import('./integrations/ProwlarrIntegration.js');
+        handler = ProwlarrIntegration;
+        break;
+
+      case 'minecraft':
+        const { default: MinecraftIntegration } = await import('./integrations/MinecraftIntegration.js');
+        handler = MinecraftIntegration;
+        break;
+
       default:
         return messageOrInteraction.reply('Integration not configured.');
     }

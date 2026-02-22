@@ -23,6 +23,9 @@
           <option value="readarr">Readarr</option>
           <option value="overseerr">Overseerr</option>
           <option value="jellyfin">Jellyfin</option>
+          <option value="tautulli">Tautulli</option>
+          <option value="prowlarr">Prowlarr</option>
+          <option value="minecraft">Minecraft Server</option>
           <option value="starboard">Starboard</option>
         </select>
       </div>
@@ -63,7 +66,34 @@
         </div>
       </div>
 
-      <div v-if="formData.service !== 'starboard'" class="form-group">
+      <!-- Minecraft config -->
+      <div v-if="formData.service === 'minecraft'" class="scheduler-section">
+        <h4>Minecraft Server Settings</h4>
+        <small class="scheduler-help">Queries server status via the mcsrvstat.us API — the server must be publicly reachable.</small>
+
+        <div class="form-group">
+          <label>Server Address *</label>
+          <input
+            v-model="formData.minecraftAddress"
+            type="text"
+            placeholder="play.example.com or 192.168.1.100:25565"
+            required
+          />
+          <small>Hostname or IP with optional port (default: 25565)</small>
+        </div>
+
+        <div class="form-group">
+          <label>Display Name (optional)</label>
+          <input
+            v-model="formData.minecraftName"
+            type="text"
+            placeholder="My Minecraft Server"
+          />
+          <small>Shown in embed titles — defaults to the server address</small>
+        </div>
+      </div>
+
+      <div v-if="formData.service !== 'starboard' && formData.service !== 'minecraft'" class="form-group">
         <label>API URL *</label>
         <input
           v-model="formData.apiUrl"
@@ -74,7 +104,7 @@
         <small>{{ apiUrlHelp }}</small>
       </div>
 
-      <div v-if="formData.service !== 'starboard'" class="form-group">
+      <div v-if="formData.service !== 'starboard' && formData.service !== 'minecraft'" class="form-group">
         <label>API Key / Token *</label>
         <input
           v-model="formData.apiKey"
@@ -194,7 +224,9 @@ const formData = ref({
   schedulerInterval: props.integration?.config?.scheduler?.interval || 'daily',
   starboardChannelId: props.integration?.config?.channelId || '',
   starboardEmoji: props.integration?.config?.emoji || '⭐',
-  starboardThreshold: props.integration?.config?.threshold || 3
+  starboardThreshold: props.integration?.config?.threshold || 3,
+  minecraftAddress: props.integration?.config?.serverAddress || '',
+  minecraftName: props.integration?.config?.serverName || ''
 });
 
 const channels = ref([]);
@@ -224,6 +256,8 @@ const apiUrlPlaceholder = computed(() => {
     case 'readarr':   return 'http://192.168.1.100:8787';
     case 'overseerr': return 'http://192.168.1.100:5055';
     case 'jellyfin':  return 'http://192.168.1.100:8096';
+    case 'tautulli':  return 'http://192.168.1.100:8181';
+    case 'prowlarr':  return 'http://192.168.1.100:9696';
     default:          return 'http://your-server:port';
   }
 });
@@ -237,6 +271,8 @@ const apiUrlHelp = computed(() => {
     case 'readarr':   return 'Your Readarr URL (e.g., http://192.168.1.100:8787)';
     case 'overseerr': return 'Your Overseerr URL (e.g., http://192.168.1.100:5055)';
     case 'jellyfin':  return 'Your Jellyfin URL (e.g., http://192.168.1.100:8096)';
+    case 'tautulli':  return 'Your Tautulli URL (e.g., http://192.168.1.100:8181)';
+    case 'prowlarr':  return 'Your Prowlarr URL (e.g., http://192.168.1.100:9696)';
     default:          return 'The base URL of your service';
   }
 });
@@ -250,6 +286,8 @@ const apiKeyHelp = computed(() => {
     case 'readarr':   return 'Find in Readarr Settings > General > Security > API Key';
     case 'overseerr': return 'Find in Overseerr Settings > General > API Key';
     case 'jellyfin':  return 'Find in Jellyfin Dashboard > Administration > API Keys';
+    case 'tautulli':  return 'Find in Tautulli Settings > Web Interface > API Key';
+    case 'prowlarr':  return 'Find in Prowlarr Settings > General > Security > API Key';
     default:          return 'Your service API key or token';
   }
 });
@@ -274,7 +312,12 @@ function handleSubmit() {
     config: {}
   };
 
-  if (formData.value.service === 'starboard') {
+  if (formData.value.service === 'minecraft') {
+    integration.config = {
+      serverAddress: formData.value.minecraftAddress,
+      serverName: formData.value.minecraftName || formData.value.minecraftAddress
+    };
+  } else if (formData.value.service === 'starboard') {
     integration.config = {
       channelId: formData.value.starboardChannelId,
       emoji: formData.value.starboardEmoji || '⭐',

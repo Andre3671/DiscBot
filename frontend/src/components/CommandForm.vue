@@ -93,6 +93,9 @@
             <option value="readarr">Readarr</option>
             <option value="overseerr">Overseerr</option>
             <option value="jellyfin">Jellyfin</option>
+            <option value="tautulli">Tautulli</option>
+            <option value="prowlarr">Prowlarr</option>
+            <option value="minecraft">Minecraft</option>
           </select>
         </div>
         <div class="form-group">
@@ -133,6 +136,20 @@
               <option value="search">Search Library</option>
               <option value="stats">Library Stats</option>
             </template>
+            <template v-else-if="formData.integrationService === 'tautulli'">
+              <option value="activity">Current Activity</option>
+              <option value="history">Watch History</option>
+              <option value="stats">Library Stats</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'prowlarr'">
+              <option value="indexers">Indexers</option>
+              <option value="stats">Indexer Stats</option>
+              <option value="search">Search</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'minecraft'">
+              <option value="status">Server Status</option>
+              <option value="players">Online Players</option>
+            </template>
           </select>
         </div>
       </div>
@@ -159,7 +176,10 @@ const SERVICE_DEFAULT_ACTION = {
   lidarr: 'search',
   readarr: 'search',
   overseerr: 'requests',
-  jellyfin: 'nowPlaying'
+  jellyfin: 'nowPlaying',
+  tautulli: 'activity',
+  prowlarr: 'indexers',
+  minecraft: 'status'
 };
 
 const props = defineProps({
