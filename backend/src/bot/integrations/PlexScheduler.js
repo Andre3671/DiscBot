@@ -181,12 +181,14 @@ class PlexScheduler {
             title: showTitle,
             year: showYear,
             thumb: showThumb,
+            addedAt: item.addedAt || 0,
             episodes: [],
             seasons: []
           });
         }
         const show = showMap.get(showKey);
         if (!show.thumb) show.thumb = showThumb;
+        if ((item.addedAt || 0) > show.addedAt) show.addedAt = item.addedAt || 0;
 
         if (item.type === 'season') {
           show.seasons.push(item.title || (item.index != null ? `Season ${item.index}` : 'New Season'));
@@ -241,7 +243,8 @@ class PlexScheduler {
       const titleMd = imdbUrl ? `[${show.title}](${imdbUrl})` : show.title;
       entries.push({
         line: `📺 **${titleMd}** — ${episodeStr}`,
-        thumbUrl: show.thumb ? `${baseUrl}${show.thumb}?X-Plex-Token=${token}` : null
+        thumbUrl: show.thumb ? `${baseUrl}${show.thumb}?X-Plex-Token=${token}` : null,
+        addedAt: show.addedAt
       });
     }
 
@@ -251,14 +254,18 @@ class PlexScheduler {
       const yearStr = movie.year ? ` (${movie.year})` : '';
       entries.push({
         line: `🎬 **${titleMd}**${yearStr}`,
-        thumbUrl: movie.thumb ? `${baseUrl}${movie.thumb}?X-Plex-Token=${token}` : null
+        thumbUrl: movie.thumb ? `${baseUrl}${movie.thumb}?X-Plex-Token=${token}` : null,
+        addedAt: movie.addedAt || 0
       });
     }
 
     if (entries.length === 0) return;
 
+    // Sort newest first, then download posters only for the 10 most recent entries
+    entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
     // Download poster images in parallel from Plex (failures silently skipped)
-    await Promise.all(entries.map(async (entry, i) => {
+    await Promise.all(entries.slice(0, 10).map(async (entry, i) => {
       if (!entry.thumbUrl) return;
       try {
         const resp = await axios.get(entry.thumbUrl, {
@@ -290,13 +297,8 @@ class PlexScheduler {
     // Send text embed + up to 10 poster images (Discord auto-grids multiple images)
     await channel.send({
       embeds: [embed],
-      files: attachments.slice(0, 10)
+      files: attachments
     });
-
-    // Send any remaining poster batches beyond the first 10
-    for (let i = 10; i < attachments.length; i += 10) {
-      await channel.send({ files: attachments.slice(i, i + 10) });
-    }
   }
 
   /**
