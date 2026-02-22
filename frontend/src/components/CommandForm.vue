@@ -94,10 +94,21 @@
         <div class="form-group">
           <label>Action *</label>
           <select v-model="formData.integrationAction" required>
-            <option value="search">Search</option>
-            <option value="nowPlaying">Now Playing (Plex)</option>
-            <option value="stats">Stats</option>
-            <option value="calendar">Calendar</option>
+            <template v-if="formData.integrationService === 'plex'">
+              <option value="nowPlaying">Now Playing</option>
+              <option value="recentlyAdded">Recently Added</option>
+              <option value="onDeck">On Deck</option>
+              <option value="search">Search Library</option>
+              <option value="stats">Library Stats</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'sonarr'">
+              <option value="calendar">Calendar</option>
+              <option value="search">Search</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'radarr'">
+              <option value="calendar">Calendar</option>
+              <option value="search">Search</option>
+            </template>
           </select>
         </div>
       </div>
@@ -116,6 +127,12 @@
 
 <script setup>
 import { ref, watch } from 'vue';
+
+const SERVICE_DEFAULT_ACTION = {
+  plex: 'nowPlaying',
+  sonarr: 'calendar',
+  radarr: 'calendar'
+};
 
 const props = defineProps({
   command: {
@@ -147,6 +164,10 @@ const embedData = ref({
   title: props.command?.embedData?.title || '',
   description: props.command?.embedData?.description || '',
   color: props.command?.embedData?.color || '#0099ff'
+});
+
+watch(() => formData.value.integrationService, (service) => {
+  formData.value.integrationAction = SERVICE_DEFAULT_ACTION[service] || 'search';
 });
 
 function handleSubmit() {
