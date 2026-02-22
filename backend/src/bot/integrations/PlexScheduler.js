@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import axios from 'axios';
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import storage from '../../storage/StorageManager.js';
 import PlexIntegration from './PlexIntegration.js';
@@ -116,7 +117,7 @@ class PlexScheduler {
 
     // Group items and build embeds (one per show, one per movie)
     const toAnnounce = newItems.slice(0, 25);
-    const embeds = this.buildGroupedEmbeds(toAnnounce, freshIntegration);
+    const embeds = await this.buildGroupedEmbeds(toAnnounce, freshIntegration);
 
     for (let i = 0; i < embeds.length; i += 10) {
       try {
@@ -146,8 +147,9 @@ class PlexScheduler {
    * Build grouped embeds: one embed per unique show, one per movie.
    * Episodes of the same show are collapsed into a single embed with their
    * show poster and a compact episode list (S01E01 · S01E02 · ...).
+   * IMDb URLs are fetched in parallel and set as the embed title link.
    */
-  buildGroupedEmbeds(items, integration, isTest = false) {
+  async buildGroupedEmbeds(items, integration, isTest = false) {
     const baseUrl = (integration.config.apiUrl || '').replace(/\/$/, '');
     const token = integration.config.apiKey;
     const serverName = integration.config?.serverName || 'Plex Server';
@@ -155,9 +157,7 @@ class PlexScheduler {
       ? `TEST | ${serverName} | Recently Added`
       : `${serverName} | Recently Added`;
 
-    const embeds = [];
-
-    // Group episodes by show (grandparentRatingKey, falling back to grandparentTitle)
+    // Group episodes by show, separate movies and other
     const showMap = new Map();
     const movies = [];
     const other = [];
@@ -167,6 +167,7 @@ class PlexScheduler {
         const key = item.grandparentRatingKey || item.grandparentTitle || 'unknown';
         if (!showMap.has(key)) {
           showMap.set(key, {
+            ratingKey: item.grandparentRatingKey,
             title: item.grandparentTitle || 'Unknown Show',
             year: item.parentYear || item.year,
             thumb: item.grandparentThumb || item.thumb,
@@ -181,8 +182,33 @@ class PlexScheduler {
       }
     }
 
+    // Fetch IMDb URLs in parallel for all unique shows and movies
+    const imdbUrls = new Map();
+    const fetches = [];
+    for (const [key, show] of showMap) {
+      if (show.ratingKey) {
+        fetches.push(
+          this.fetchImdbUrl(integration, show.ratingKey).then(url => {
+            if (url) imdbUrls.set(key, url);
+          })
+        );
+      }
+    }
+    for (const movie of movies) {
+      if (movie.ratingKey) {
+        fetches.push(
+          this.fetchImdbUrl(integration, movie.ratingKey).then(url => {
+            if (url) imdbUrls.set(movie.ratingKey, url);
+          })
+        );
+      }
+    }
+    await Promise.all(fetches);
+
+    const embeds = [];
+
     // One embed per show
-    for (const [, show] of showMap) {
+    for (const [key, show] of showMap) {
       const episodeList = show.episodes
         .map(ep => {
           const s = ep.parentIndex != null ? `S${String(ep.parentIndex).padStart(2, '0')}` : '';
@@ -198,12 +224,10 @@ class PlexScheduler {
         .setFooter({ text: footerText })
         .setTimestamp();
 
+      if (imdbUrls.has(key)) embed.setURL(imdbUrls.get(key));
       if (show.year) embed.addFields({ name: 'Year', value: String(show.year), inline: true });
       embed.addFields({ name: 'New episodes', value: String(show.episodes.length), inline: true });
-
-      if (show.thumb) {
-        embed.setThumbnail(`${baseUrl}${show.thumb}?X-Plex-Token=${token}`);
-      }
+      if (show.thumb) embed.setThumbnail(`${baseUrl}${show.thumb}?X-Plex-Token=${token}`);
 
       embeds.push(embed);
     }
@@ -216,12 +240,10 @@ class PlexScheduler {
         .setFooter({ text: footerText })
         .setTimestamp();
 
+      if (imdbUrls.has(movie.ratingKey)) embed.setURL(imdbUrls.get(movie.ratingKey));
       if (movie.year) embed.addFields({ name: 'Year', value: String(movie.year), inline: true });
       if (movie.summary) embed.setDescription(movie.summary.slice(0, 150) + (movie.summary.length > 150 ? '…' : ''));
-
-      if (movie.thumb) {
-        embed.setThumbnail(`${baseUrl}${movie.thumb}?X-Plex-Token=${token}`);
-      }
+      if (movie.thumb) embed.setThumbnail(`${baseUrl}${movie.thumb}?X-Plex-Token=${token}`);
 
       embeds.push(embed);
     }
@@ -235,14 +257,34 @@ class PlexScheduler {
         .setFooter({ text: footerText })
         .setTimestamp();
 
-      if (item.thumb) {
-        embed.setThumbnail(`${baseUrl}${item.thumb}?X-Plex-Token=${token}`);
-      }
+      if (item.thumb) embed.setThumbnail(`${baseUrl}${item.thumb}?X-Plex-Token=${token}`);
 
       embeds.push(embed);
     }
 
     return embeds;
+  }
+
+  /**
+   * Fetch the IMDb URL for a Plex item by its ratingKey.
+   * Returns null if not found or on error.
+   */
+  async fetchImdbUrl(integration, ratingKey) {
+    try {
+      const { apiUrl, apiKey } = integration.config || {};
+      const baseUrl = apiUrl.replace(/\/$/, '');
+      const response = await axios.get(`${baseUrl}/library/metadata/${ratingKey}`, {
+        headers: { 'X-Plex-Token': apiKey, 'Accept': 'application/json' },
+        params: { includeGuids: 1 }
+      });
+      const metadata = response.data?.MediaContainer?.Metadata?.[0];
+      const imdbGuid = metadata?.Guid?.find(g => g.id?.startsWith('imdb://'));
+      if (!imdbGuid) return null;
+      const imdbId = imdbGuid.id.replace('imdb://', '');
+      return `https://www.imdb.com/title/${imdbId}/`;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -298,7 +340,7 @@ class PlexScheduler {
 
     // Build grouped embeds (one per show, one per movie) and send
     const toSend = recentItems.slice(0, 25);
-    const embeds = this.buildGroupedEmbeds(toSend, integration, true);
+    const embeds = await this.buildGroupedEmbeds(toSend, integration, true);
 
     for (let i = 0; i < embeds.length; i += 10) {
       await channel.send({ embeds: embeds.slice(i, i + 10) });
