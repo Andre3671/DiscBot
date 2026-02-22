@@ -114,9 +114,9 @@ class PlexScheduler {
 
     console.log(`[PlexScheduler] Found ${newItems.length} new items for bot ${botId}`);
 
-    // Build all embeds then send in batches of 10 (Discord limit per message)
+    // Group items and build embeds (one per show, one per movie)
     const toAnnounce = newItems.slice(0, 25);
-    const embeds = toAnnounce.map(item => this.buildEmbed(item, freshIntegration));
+    const embeds = this.buildGroupedEmbeds(toAnnounce, freshIntegration);
 
     for (let i = 0; i < embeds.length; i += 10) {
       try {
@@ -142,41 +142,107 @@ class PlexScheduler {
     setTimeout(() => { this.writing = false; }, 1000);
   }
 
-  buildEmbed(item, integration) {
-    const mediaType = this.getMediaType(item.type);
-    const title = item.grandparentTitle
-      ? `${item.grandparentTitle} - ${item.title}`
-      : item.title;
+  /**
+   * Build grouped embeds: one embed per unique show, one per movie.
+   * Episodes of the same show are collapsed into a single embed with their
+   * show poster and a compact episode list (S01E01 · S01E02 · ...).
+   */
+  buildGroupedEmbeds(items, integration, isTest = false) {
+    const baseUrl = (integration.config.apiUrl || '').replace(/\/$/, '');
+    const token = integration.config.apiKey;
+    const serverName = integration.config?.serverName || 'Plex Server';
+    const footerText = isTest
+      ? `TEST | ${serverName} | Recently Added`
+      : `${serverName} | Recently Added`;
 
-    const embed = new EmbedBuilder()
-      .setTitle(`New on Plex: ${title}`)
-      .setColor('#e5a00d')
-      .setFooter({ text: `${integration.config.serverName || 'Plex Server'} | Recently Added` })
-      .setTimestamp();
+    const embeds = [];
 
-    const parts = [];
-    if (item.year) parts.push(`**Year:** ${item.year}`);
-    parts.push(`**Type:** ${mediaType}`);
-    embed.setDescription(parts.join('\n'));
+    // Group episodes by show (grandparentRatingKey, falling back to grandparentTitle)
+    const showMap = new Map();
+    const movies = [];
+    const other = [];
 
-    // Poster thumbnail
-    if (item.thumb) {
-      const baseUrl = integration.config.apiUrl.replace(/\/$/, '');
-      const thumbUrl = `${baseUrl}${item.thumb}?X-Plex-Token=${integration.config.apiKey}`;
-      embed.setThumbnail(thumbUrl);
+    for (const item of items) {
+      if (item.type === 'episode') {
+        const key = item.grandparentRatingKey || item.grandparentTitle || 'unknown';
+        if (!showMap.has(key)) {
+          showMap.set(key, {
+            title: item.grandparentTitle || 'Unknown Show',
+            year: item.parentYear || item.year,
+            thumb: item.grandparentThumb || item.thumb,
+            episodes: []
+          });
+        }
+        showMap.get(key).episodes.push(item);
+      } else if (item.type === 'movie') {
+        movies.push(item);
+      } else {
+        other.push(item);
+      }
     }
 
-    return embed;
-  }
+    // One embed per show
+    for (const [, show] of showMap) {
+      const episodeList = show.episodes
+        .map(ep => {
+          const s = ep.parentIndex != null ? `S${String(ep.parentIndex).padStart(2, '0')}` : '';
+          const e = ep.index != null ? `E${String(ep.index).padStart(2, '0')}` : '';
+          return (s + e) || ep.title;
+        })
+        .join(' · ');
 
-  getMediaType(type) {
-    const types = {
-      movie: 'Movie',
-      show: 'TV Show',
-      season: 'Season',
-      episode: 'Episode'
-    };
-    return types[type] || type || 'Unknown';
+      const embed = new EmbedBuilder()
+        .setTitle(`📺 ${show.title}`)
+        .setDescription(episodeList)
+        .setColor('#e5a00d')
+        .setFooter({ text: footerText })
+        .setTimestamp();
+
+      if (show.year) embed.addFields({ name: 'Year', value: String(show.year), inline: true });
+      embed.addFields({ name: 'New episodes', value: String(show.episodes.length), inline: true });
+
+      if (show.thumb) {
+        embed.setThumbnail(`${baseUrl}${show.thumb}?X-Plex-Token=${token}`);
+      }
+
+      embeds.push(embed);
+    }
+
+    // One embed per movie
+    for (const movie of movies) {
+      const embed = new EmbedBuilder()
+        .setTitle(`🎬 ${movie.title}`)
+        .setColor('#e5a00d')
+        .setFooter({ text: footerText })
+        .setTimestamp();
+
+      if (movie.year) embed.addFields({ name: 'Year', value: String(movie.year), inline: true });
+      if (movie.summary) embed.setDescription(movie.summary.slice(0, 150) + (movie.summary.length > 150 ? '…' : ''));
+
+      if (movie.thumb) {
+        embed.setThumbnail(`${baseUrl}${movie.thumb}?X-Plex-Token=${token}`);
+      }
+
+      embeds.push(embed);
+    }
+
+    // Anything else (albums, etc.)
+    for (const item of other) {
+      const title = item.grandparentTitle ? `${item.grandparentTitle} — ${item.title}` : item.title;
+      const embed = new EmbedBuilder()
+        .setTitle(title)
+        .setColor('#e5a00d')
+        .setFooter({ text: footerText })
+        .setTimestamp();
+
+      if (item.thumb) {
+        embed.setThumbnail(`${baseUrl}${item.thumb}?X-Plex-Token=${token}`);
+      }
+
+      embeds.push(embed);
+    }
+
+    return embeds;
   }
 
   /**
@@ -230,18 +296,18 @@ class PlexScheduler {
       return { sent: 0, message: `No items added in the last ${scheduler.interval} window.` };
     }
 
-    // Build all embeds and send grouped in one message (max 10 per Discord message)
-    const toSend = recentItems.slice(0, 10);
-    const embeds = toSend.map(item => {
-      const embed = this.buildEmbed(item, integration);
-      embed.setFooter({ text: `TEST | ${integration.config.serverName || 'Plex Server'} | Recently Added` });
-      return embed;
-    });
+    // Build grouped embeds (one per show, one per movie) and send
+    const toSend = recentItems.slice(0, 25);
+    const embeds = this.buildGroupedEmbeds(toSend, integration, true);
 
-    await channel.send({ embeds });
+    for (let i = 0; i < embeds.length; i += 10) {
+      await channel.send({ embeds: embeds.slice(i, i + 10) });
+    }
 
-    const extra = recentItems.length > 10 ? ` (showing 10 of ${recentItems.length})` : '';
-    return { sent: embeds.length, message: `Sent ${embeds.length} item(s) in 1 message to #${channel.name}${extra}` };
+    const itemCount = toSend.length;
+    const embedCount = embeds.length;
+    const extra = recentItems.length > 25 ? ` (showing 25 of ${recentItems.length} items)` : '';
+    return { sent: embedCount, message: `Sent ${itemCount} item(s) as ${embedCount} grouped embed(s) to #${channel.name}${extra}` };
   }
 
   /**
