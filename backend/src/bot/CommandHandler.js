@@ -286,6 +286,11 @@ class CommandHandler {
         handler = OverseerrIntegration;
         break;
 
+      case 'jellyfin':
+        const { default: JellyfinIntegration } = await import('./integrations/JellyfinIntegration.js');
+        handler = JellyfinIntegration;
+        break;
+
       default:
         return messageOrInteraction.reply('Integration not configured.');
     }

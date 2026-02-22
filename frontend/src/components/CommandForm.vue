@@ -92,6 +92,7 @@
             <option value="lidarr">Lidarr</option>
             <option value="readarr">Readarr</option>
             <option value="overseerr">Overseerr</option>
+            <option value="jellyfin">Jellyfin</option>
           </select>
         </div>
         <div class="form-group">
@@ -126,6 +127,12 @@
               <option value="pending">Pending Requests</option>
               <option value="search">Search Media</option>
             </template>
+            <template v-else-if="formData.integrationService === 'jellyfin'">
+              <option value="nowPlaying">Now Playing</option>
+              <option value="recentlyAdded">Recently Added</option>
+              <option value="search">Search Library</option>
+              <option value="stats">Library Stats</option>
+            </template>
           </select>
         </div>
       </div>
@@ -151,7 +158,8 @@ const SERVICE_DEFAULT_ACTION = {
   radarr: 'calendar',
   lidarr: 'search',
   readarr: 'search',
-  overseerr: 'requests'
+  overseerr: 'requests',
+  jellyfin: 'nowPlaying'
 };
 
 const props = defineProps({

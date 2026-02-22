@@ -22,6 +22,7 @@
           <option value="lidarr">Lidarr</option>
           <option value="readarr">Readarr</option>
           <option value="overseerr">Overseerr</option>
+          <option value="jellyfin">Jellyfin</option>
           <option value="starboard">Starboard</option>
         </select>
       </div>
@@ -84,12 +85,12 @@
         <small>{{ apiKeyHelp }}</small>
       </div>
 
-      <div v-if="formData.service === 'plex'" class="form-group">
+      <div v-if="formData.service === 'plex' || formData.service === 'jellyfin'" class="form-group">
         <label>Server Name (optional)</label>
         <input
           v-model="formData.serverName"
           type="text"
-          placeholder="My Plex Server"
+          :placeholder="formData.service === 'jellyfin' ? 'My Jellyfin Server' : 'My Plex Server'"
         />
       </div>
 
@@ -222,6 +223,7 @@ const apiUrlPlaceholder = computed(() => {
     case 'lidarr':    return 'http://192.168.1.100:8686';
     case 'readarr':   return 'http://192.168.1.100:8787';
     case 'overseerr': return 'http://192.168.1.100:5055';
+    case 'jellyfin':  return 'http://192.168.1.100:8096';
     default:          return 'http://your-server:port';
   }
 });
@@ -234,6 +236,7 @@ const apiUrlHelp = computed(() => {
     case 'lidarr':    return 'Your Lidarr URL (e.g., http://192.168.1.100:8686)';
     case 'readarr':   return 'Your Readarr URL (e.g., http://192.168.1.100:8787)';
     case 'overseerr': return 'Your Overseerr URL (e.g., http://192.168.1.100:5055)';
+    case 'jellyfin':  return 'Your Jellyfin URL (e.g., http://192.168.1.100:8096)';
     default:          return 'The base URL of your service';
   }
 });
@@ -246,6 +249,7 @@ const apiKeyHelp = computed(() => {
     case 'lidarr':    return 'Find in Lidarr Settings > General > Security > API Key';
     case 'readarr':   return 'Find in Readarr Settings > General > Security > API Key';
     case 'overseerr': return 'Find in Overseerr Settings > General > API Key';
+    case 'jellyfin':  return 'Find in Jellyfin Dashboard > Administration > API Keys';
     default:          return 'Your service API key or token';
   }
 });
@@ -282,6 +286,9 @@ function handleSubmit() {
       apiUrl: formData.value.apiUrl,
       apiKey: formData.value.apiKey
     };
+    if (formData.value.service === 'jellyfin' && formData.value.serverName) {
+      integration.config.serverName = formData.value.serverName;
+    }
     if (formData.value.service === 'plex') {
       if (formData.value.serverName) {
         integration.config.serverName = formData.value.serverName;
