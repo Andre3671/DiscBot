@@ -19,6 +19,9 @@
           <option value="plex">Plex Media Server</option>
           <option value="sonarr">Sonarr</option>
           <option value="radarr">Radarr</option>
+          <option value="lidarr">Lidarr</option>
+          <option value="readarr">Readarr</option>
+          <option value="overseerr">Overseerr</option>
           <option value="starboard">Starboard</option>
         </select>
       </div>
@@ -213,40 +216,37 @@ onMounted(async () => {
 
 const apiUrlPlaceholder = computed(() => {
   switch (formData.value.service) {
-    case 'plex':
-      return 'http://192.168.1.100:32400';
-    case 'sonarr':
-      return 'http://192.168.1.100:8989';
-    case 'radarr':
-      return 'http://192.168.1.100:7878';
-    default:
-      return 'http://your-server:port';
+    case 'plex':      return 'http://192.168.1.100:32400';
+    case 'sonarr':    return 'http://192.168.1.100:8989';
+    case 'radarr':    return 'http://192.168.1.100:7878';
+    case 'lidarr':    return 'http://192.168.1.100:8686';
+    case 'readarr':   return 'http://192.168.1.100:8787';
+    case 'overseerr': return 'http://192.168.1.100:5055';
+    default:          return 'http://your-server:port';
   }
 });
 
 const apiUrlHelp = computed(() => {
   switch (formData.value.service) {
-    case 'plex':
-      return 'Your Plex server URL (e.g., http://192.168.1.100:32400 or http://192.168.1.100:32400/)';
-    case 'sonarr':
-      return 'Your Sonarr URL (e.g., http://192.168.1.100:8989 - with or without trailing slash)';
-    case 'radarr':
-      return 'Your Radarr URL (e.g., http://192.168.1.100:7878 - with or without trailing slash)';
-    default:
-      return 'The base URL of your service (with or without trailing slash)';
+    case 'plex':      return 'Your Plex server URL (e.g., http://192.168.1.100:32400)';
+    case 'sonarr':    return 'Your Sonarr URL (e.g., http://192.168.1.100:8989)';
+    case 'radarr':    return 'Your Radarr URL (e.g., http://192.168.1.100:7878)';
+    case 'lidarr':    return 'Your Lidarr URL (e.g., http://192.168.1.100:8686)';
+    case 'readarr':   return 'Your Readarr URL (e.g., http://192.168.1.100:8787)';
+    case 'overseerr': return 'Your Overseerr URL (e.g., http://192.168.1.100:5055)';
+    default:          return 'The base URL of your service';
   }
 });
 
 const apiKeyHelp = computed(() => {
   switch (formData.value.service) {
-    case 'plex':
-      return 'Find your Plex token in Settings > Account > Authorized Devices';
-    case 'sonarr':
-      return 'Find in Sonarr Settings > General > Security > API Key';
-    case 'radarr':
-      return 'Find in Radarr Settings > General > Security > API Key';
-    default:
-      return 'Your service API key or token';
+    case 'plex':      return 'Find your Plex token in Settings > Account > Authorized Devices';
+    case 'sonarr':    return 'Find in Sonarr Settings > General > Security > API Key';
+    case 'radarr':    return 'Find in Radarr Settings > General > Security > API Key';
+    case 'lidarr':    return 'Find in Lidarr Settings > General > Security > API Key';
+    case 'readarr':   return 'Find in Readarr Settings > General > Security > API Key';
+    case 'overseerr': return 'Find in Overseerr Settings > General > API Key';
+    default:          return 'Your service API key or token';
   }
 });
 

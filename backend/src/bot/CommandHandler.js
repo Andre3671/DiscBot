@@ -271,6 +271,21 @@ class CommandHandler {
         handler = RadarrIntegration;
         break;
 
+      case 'lidarr':
+        const { default: LidarrIntegration } = await import('./integrations/LidarrIntegration.js');
+        handler = LidarrIntegration;
+        break;
+
+      case 'readarr':
+        const { default: ReadarrIntegration } = await import('./integrations/ReadarrIntegration.js');
+        handler = ReadarrIntegration;
+        break;
+
+      case 'overseerr':
+        const { default: OverseerrIntegration } = await import('./integrations/OverseerrIntegration.js');
+        handler = OverseerrIntegration;
+        break;
+
       default:
         return messageOrInteraction.reply('Integration not configured.');
     }

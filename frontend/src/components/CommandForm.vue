@@ -89,6 +89,9 @@
             <option value="plex">Plex</option>
             <option value="sonarr">Sonarr</option>
             <option value="radarr">Radarr</option>
+            <option value="lidarr">Lidarr</option>
+            <option value="readarr">Readarr</option>
+            <option value="overseerr">Overseerr</option>
           </select>
         </div>
         <div class="form-group">
@@ -108,6 +111,20 @@
             <template v-else-if="formData.integrationService === 'radarr'">
               <option value="calendar">Calendar</option>
               <option value="search">Search</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'lidarr'">
+              <option value="search">Search Artists</option>
+              <option value="calendar">Upcoming Releases</option>
+              <option value="queue">Download Queue</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'readarr'">
+              <option value="search">Search Books</option>
+              <option value="calendar">Upcoming Releases</option>
+            </template>
+            <template v-else-if="formData.integrationService === 'overseerr'">
+              <option value="requests">All Requests</option>
+              <option value="pending">Pending Requests</option>
+              <option value="search">Search Media</option>
             </template>
           </select>
         </div>
@@ -131,7 +148,10 @@ import { ref, watch } from 'vue';
 const SERVICE_DEFAULT_ACTION = {
   plex: 'nowPlaying',
   sonarr: 'calendar',
-  radarr: 'calendar'
+  radarr: 'calendar',
+  lidarr: 'search',
+  readarr: 'search',
+  overseerr: 'requests'
 };
 
 const props = defineProps({
