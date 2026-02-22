@@ -163,18 +163,30 @@ class PlexScheduler {
     const other = [];
 
     for (const item of items) {
-      if (item.type === 'episode') {
-        const key = item.grandparentRatingKey || item.grandparentTitle || 'unknown';
+      if (item.type === 'episode' || item.type === 'season') {
+        // Use grandparentRatingKey to group; fall back to grandparentTitle
+        const key = item.grandparentRatingKey || item.grandparentTitle || item.ratingKey || 'unknown';
         if (!showMap.has(key)) {
           showMap.set(key, {
-            ratingKey: item.grandparentRatingKey,
-            title: item.grandparentTitle || 'Unknown Show',
+            ratingKey: item.grandparentRatingKey || (item.type === 'season' ? item.ratingKey : null),
+            title: item.grandparentTitle || item.title || 'Unknown Show',
             year: item.parentYear || item.year,
-            thumb: item.grandparentThumb || item.thumb,
-            episodes: []
+            // Try every thumb field in order of preference
+            thumb: item.grandparentThumb || item.parentThumb || item.thumb || null,
+            episodes: [],
+            seasons: []
           });
         }
-        showMap.get(key).episodes.push(item);
+        const show = showMap.get(key);
+        // Keep best thumb found across items for the same show
+        if (!show.thumb) {
+          show.thumb = item.grandparentThumb || item.parentThumb || item.thumb || null;
+        }
+        if (item.type === 'season') {
+          show.seasons.push(item.title || (item.index != null ? `Season ${item.index}` : 'New Season'));
+        } else {
+          show.episodes.push(item);
+        }
       } else if (item.type === 'movie') {
         movies.push(item);
       } else {
@@ -209,24 +221,34 @@ class PlexScheduler {
 
     // One embed per show
     for (const [key, show] of showMap) {
-      const episodeList = show.episodes
-        .map(ep => {
-          const s = ep.parentIndex != null ? `S${String(ep.parentIndex).padStart(2, '0')}` : '';
-          const e = ep.index != null ? `E${String(ep.index).padStart(2, '0')}` : '';
-          return (s + e) || ep.title;
-        })
-        .join(' · ');
+      let description;
+      let countField;
+
+      if (show.episodes.length > 0) {
+        description = show.episodes
+          .map(ep => {
+            const s = ep.parentIndex != null ? `S${String(ep.parentIndex).padStart(2, '0')}` : '';
+            const e = ep.index != null ? `E${String(ep.index).padStart(2, '0')}` : '';
+            return (s + e) || ep.title;
+          })
+          .join(' · ');
+        countField = { name: 'New episodes', value: String(show.episodes.length), inline: true };
+      } else {
+        // Season-level items: list the season names
+        description = show.seasons.join(', ');
+        countField = { name: 'New seasons', value: String(show.seasons.length), inline: true };
+      }
 
       const embed = new EmbedBuilder()
         .setTitle(`📺 ${show.title}`)
-        .setDescription(episodeList)
+        .setDescription(description)
         .setColor('#e5a00d')
         .setFooter({ text: footerText })
         .setTimestamp();
 
       if (imdbUrls.has(key)) embed.setURL(imdbUrls.get(key));
       if (show.year) embed.addFields({ name: 'Year', value: String(show.year), inline: true });
-      embed.addFields({ name: 'New episodes', value: String(show.episodes.length), inline: true });
+      embed.addFields(countField);
       if (show.thumb) embed.setThumbnail(`${baseUrl}${show.thumb}?X-Plex-Token=${token}`);
 
       embeds.push(embed);
